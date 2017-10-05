@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+CACHE-CONTROL: max-age=100
+DATE: Thu, 27 Aug 2015 02:50:20 GMT
+EXT:
+LOCATION: http://192.168.0.1:1900/igd.xml
+SERVER: ipos/7.0 UPnP/1.0 TL-WR841N/9.0
+ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1
+USN: uuid:060b7353-fca6-4070-85f4-1fbfb9add62c::urn:schemas-upnp-org:device:InternetGatewayDevice:1
+
+I have got reply from Kimberly Yurchick an Angela Beca. According to their replies, the final decision is made by graduate school. What I have to do now

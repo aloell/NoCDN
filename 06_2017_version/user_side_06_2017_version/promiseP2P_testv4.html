@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+</head>
+<body id="demo">
+<div id="demo_div"><h1>daikdhkasdakl</h1></div>
+<div id="demo_div2">
+<div id="rst"></div>
+<script type="text/javascript">
+var container={};
+var peerUrl="http://24.93.121.210/";
+var originDomain="http://54.201.12.230/";
+
+var d1=Date.now();
+
+function cssParser(cssContent){
+	var myPattern=/url\(.*\)/g;
+	var matchResult=cssContent.match(myPattern);
+    //assume url in css is a image and url is relative here
+    var relativeDeepUrl;
+	var absoluteDeepUrl;
+    var i=0;
+    var urls=[];
+    var duplicateCheck={};
+    //for every url found, check if we've obtained, if not, download it.
+    if(matchResult!=null)
+    {
+    	for(i=0;i<matchResult.length;i++)
+		{
+			var unit={};
+			//format like url(./qihu_files/some_pic.png)
+			//instead of url("some_pic.png")
+        	relativeDeepUrl=matchResult[i].substring(6,matchResult[i].length-1);
+        	absoluteDeepUrl=peerUrl+relativeDeepUrl;
+        	if(duplicateCheck[absoluteDeepUrl]==undefined)
+        	{
+        		unit.url=absoluteDeepUrl;
+        		unit.type=2;
+        		urls.push(unit);
+        	}
+		}
+	}
+	return urls;
+}
+
+function frameParser(frameContent){
+	//match src="" only, not src='' and assume urls in src are relative urls
+	var imgTagPattern=/<img src=(\"|\').*\.(png|jpg|gif)(\"|\')/g;
+	var linkTagPattern=/<link href=(\"|\').*\.(png|jpg|gif|css)(\"|\')/g;
+	var scriptTagPattern=/<script src=(\"|\').*\.js(\"|\')/g;
+	var frameTagPattern=/<iframe src=(\"|\').*\.html(\"|\')/g;
+    var relativeDeepUrl;
+    var absoluteDeepUrl;
+    var i=0;
+    var urls=[];
+    //used to prevent same level duplicate fetch
+    //scenario that uncle already start to fetch, nephew fetch again 
+    //has not been prevented, in java, these can be handled by sleep
+    var duplicateCheck={};
+    var matchResult=frameContent.match(scriptTagPattern);
+    if(matchResult!=null)
+    {
+    	for(i=0;i<matchResult.length;i++)
+    	{
+    		var unit={};
+    		var scriptPrefix="<script src='./";
+    		relativeDeepUrl=matchResult[i].substring(scriptPrefix.length,matchResult[i].length-1);
+        	absoluteDeepUrl=peerUrl+relativeDeepUrl;
+			unit.url=absoluteDeepUrl;
+			unit.type=1;
+			if(duplicateCheck[absoluteDeepUrl]==undefined)
+			{
+				duplicateCheck[absoluteDeepUrl]=1;
+        		urls.push(unit);
+        	}
+    	}
+    }
+    matchResult=frameContent.match(imgTagPattern);
+    //for every url found, check if we've obtained, if not, download it.
+    if(matchResult!=null)
+    {
+    	for(i=0;i<matchResult.length;i++)
+    	{
+    		var unit={};
+    		var imgPrefix="<img src='./";
+    		relativeDeepUrl=matchResult[i].substring(imgPrefix.length,matchResult[i].length-1);
+        	absoluteDeepUrl=peerUrl+relativeDeepUrl;
+			unit.url=absoluteDeepUrl;
+			unit.type=2;
+        	if(duplicateCheck[absoluteDeepUrl]==undefined)
+			{
+				duplicateCheck[absoluteDeepUrl]=1;
+        		urls.push(unit);
+        	}
+    	}
+    }
+    matchResult=frameContent.match(linkTagPattern);
+    if(matchResult!=null)
+    {
+		for(i=0;i<matchResult.length;i++)
+    	{
+    		var unit={};
+    		var linkPrefix="<link href='./";
+        	relativeDeepUrl=matchResult[i].substring(linkPrefix.length,matchResult[i].length-1);
+        	absoluteDeepUrl=peerUrl+relativeDeepUrl;
+        	unit.url=absoluteDeepUrl;
+			if(relativeDeepUrl.endsWith("css")){
+				unit.type=3;
+			}
+			else{
+				unit.type=2;
+			}
+			if(duplicateCheck[absoluteDeepUrl]==undefined)
+			{
+				duplicateCheck[absoluteDeepUrl]=1;
+        		urls.push(unit);
+        	}
+    	}
+    }
+    
+    matchResult=frameContent.match(frameTagPattern);
+    //for every url found, check if we've obtained, if not, download it.
+    if(matchResult!=null)
+    {
+    	for(i=0;i<matchResult.length;i++)
+    	{
+    		var unit={};
+    		var framePrefix="<iframe src='./"
+    		relativeDeepUrl=matchResult[i].substring(framePrefix.length,matchResult[i].length-1);
+        	absoluteDeepUrl=peerUrl+relativeDeepUrl;
+			unit.url=absoluteDeepUrl;
+			unit.type=0;
+        	if(duplicateCheck[absoluteDeepUrl]==undefined)
+			{
+				duplicateCheck[absoluteDeepUrl]=1;
+        		urls.push(unit);
+        	}
+    	}
+    }
+    
+    //view frameContent as a css file to parse inline css content embedded in this frame content
+    var fromInlineCSS=cssParser(frameContent);
+    for(i=0;i<fromInlineCSS.length;i++)
+    {
+    	if(duplicateCheck[fromInlineCSS[i].url]==undefined)
+    		urls.push(fromInlineCSS[i]);
+    }
+    return urls;
+}
+function getFileType(fileUrl)
+{
+	if(fileUrl.endsWith(".html")||fileUrl.endsWith(".php"))
+		return 0;
+	else if(fileUrl.endsWith(".js"))
+		return 1;
+	else if(fileUrl.endsWith(".gif")||fileUrl.endsWith(".png")||fileUrl.endsWith(".jpg"))
+		return 2;
+	else if(fileUrl.endsWith(".css"))
+		return 3;
+	else
+		return 4;
+}
+function scriptParser(scriptContent){
+    var urls=[];
+	return urls;
+}
+function imageParser(imageContent){
+	return [];
+}
+
+var parsers=[frameParser,scriptParser,imageParser,cssParser];
+
+
+function cssLinkReplacer(originContent)
+{
+	var absoluteDeepUrl;
+	var relativeDeepUrl;
+	var myPattern=/url\(.*\)/g;
+	cssResult=originContent.replace(myPattern,function(match){
+	    //format like url(./qihu_files/some_pic.png)
+		//instead of url("some_pic.png")
+        relativeDeepUrl=match.substring(6,match.length-1);
+        absoluteDeepUrl=peerUrl+relativeDeepUrl;
+        var newPart="url("+container[absoluteDeepUrl]+")";
+        return newPart;
+    });
+    var rst;
+    rst='data:text/css;charset=utf-8,'+encodeURIComponent(cssResult);
+    return rst;
+}
+
+function frameLinkReplacer(originContent)
+{
+	var imgTagPattern=/<img src=(\"|\').*\.(png|jpg|gif)(\"|\')/g;
+	var linkTagPattern=/<link href=(\"|\').*\.(png|jpg|gif|css)(\"|\')/g;
+	var scriptTagPattern=/<script src=(\"|\').*\.js(\"|\')/g;
+	var frameTagPattern=/<iframe src=(\"|\').*\.html(\"|\')/g;
+	var absoluteDeepUrl;
+	var relativeDeepUrl;
+	
+	var extendedFrame0=cssLinkReplacer(originContent);
+	//extendedFrame0 has prefix like "data:text/css;charset=utf-8,"(exclude quotes)
+	var cssPrefix='data:text/css;charset=utf-8,';
+	extendedFrame0=extendedFrame0.substring(cssPrefix.length);
+	extendedFrame0=decodeURIComponent(extendedFrame0);
+    
+    var extendedFrame1=extendedFrame0.replace(imgTagPattern,function(match){
+    	var newPart;
+		relativeDeepUrl=match.substring(12,match.length-1);
+		absoluteDeepUrl=peerUrl+relativeDeepUrl;
+        newPart='<img src="'+container[absoluteDeepUrl]+'"';
+        return newPart;
+    });
+    var extendedFrame2=extendedFrame1.replace(linkTagPattern,function(match){
+        var newPart;
+		relativeDeepUrl=match.substring(14,match.length-1);
+		absoluteDeepUrl=peerUrl+relativeDeepUrl;
+        newPart='<link href="'+container[absoluteDeepUrl]+'"';
+          	return newPart;
+    });
+    var extendedFrame3=extendedFrame2.replace(scriptTagPattern,function(match){
+        var newPart;
+		relativeDeepUrl=match.substring(15,match.length-1);
+		absoluteDeepUrl=peerUrl+relativeDeepUrl;
+        newPart='<script src="'+container[absoluteDeepUrl]+'"';
+          	return newPart;
+    });
+    //if there is <iframe src="balabal.html" in script tag, below may try to replace
+    //them and cause trouble
+    var extendedFrame4=extendedFrame3.replace(frameTagPattern,function(match){
+        var newPart;
+		relativeDeepUrl=match.substring(15,match.length-1);
+		absoluteDeepUrl=peerUrl+relativeDeepUrl;
+        newPart='<iframe src="'+container[absoluteDeepUrl]+'"';
+          	return newPart;
+    });
+    
+    var rst;
+    rst='data:text/html;charset=utf-8,'+encodeURIComponent(extendedFrame4);
+    return rst;
+}
+function scriptLinkReplacer(originContent)
+{
+    var rst;
+    rst='data:text/javascript;charset=utf-8,'+encodeURIComponent(originContent);
+    return rst;
+}
+function imageLinkReplacer(originContent)
+{
+	var imgByteArray=new Uint8Array(originContent);
+    var result=String.fromCharCode(imgByteArray[0]);
+    var i=0;
+    var temp;
+    for(i=1;i<imgByteArray.length;i++)
+    {
+        temp=String.fromCharCode(imgByteArray[i]);
+        result=result+temp;
+    }
+    var rst='data:image/png;base64,'+window.btoa(result);
+    return rst;
+}
+
+
+var linkReplacer=[frameLinkReplacer,scriptLinkReplacer,imageLinkReplacer,cssLinkReplacer];
+
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
+/*  SHA-1 implementation in JavaScript                  (c) Chris Veness 2002-2014 / MIT Licence  */
+/*                                                                                                */
+/*  - see http://csrc.nist.gov/groups/ST/toolkit/secure_hashing.html                              */
+/*        http://csrc.nist.gov/groups/ST/toolkit/examples.html                                    */
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
+
+/**
+ * SHA-1 hash function reference implementation.
+ *
+ * @namespace
+ */
+var Sha1 = {};
+
+Sha1.hash = function(msg) {
+    // constants [§4.2.1]
+    var K = [ 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6 ];
+    // PREPROCESSING
+    msg += String.fromCharCode(0x80);  // add trailing '1' bit (+ 0's padding) to string [§5.1.1]
+
+    // convert string msg into 512-bit/16-integer blocks arrays of ints [§5.2.1]
+    var l = msg.length/4 + 2; // length (in 32-bit integers) of msg + ‘1’ + appended length
+    var N = Math.ceil(l/16);  // number of 16-integer-blocks required to hold 'l' ints
+    var M = new Array(N);
+
+    for (var i=0; i<N; i++) {
+        M[i] = new Array(16);
+        for (var j=0; j<16; j++) {  // encode 4 chars per integer, big-endian encoding
+            M[i][j] = (msg.charCodeAt(i*64+j*4)<<24) | (msg.charCodeAt(i*64+j*4+1)<<16) |
+                (msg.charCodeAt(i*64+j*4+2)<<8) | (msg.charCodeAt(i*64+j*4+3));
+        } // note running off the end of msg is ok 'cos bitwise ops on NaN return 0
+    }
+    // add length (in bits) into final pair of 32-bit integers (big-endian) [§5.1.1]
+    // note: most significant word would be (len-1)*8 >>> 32, but since JS converts
+    // bitwise-op args to 32 bits, we need to simulate this by arithmetic operators
+    M[N-1][14] = ((msg.length-1)*8) / Math.pow(2, 32); M[N-1][14] = Math.floor(M[N-1][14]);
+    M[N-1][15] = ((msg.length-1)*8) & 0xffffffff;
+
+    // set initial hash value [§5.3.1]
+    var H0 = 0x67452301;
+    var H1 = 0xefcdab89;
+    var H2 = 0x98badcfe;
+    var H3 = 0x10325476;
+    var H4 = 0xc3d2e1f0;
+
+    // HASH COMPUTATION [§6.1.2]
+
+    var W = new Array(80); var a, b, c, d, e;
+    for (var i=0; i<N; i++) {
+
+        // 1 - prepare message schedule 'W'
+        for (var t=0;  t<16; t++) W[t] = M[i][t];
+        for (var t=16; t<80; t++) W[t] = Sha1.ROTL(W[t-3] ^ W[t-8] ^ W[t-14] ^ W[t-16], 1);
+
+        // 2 - initialise five working variables a, b, c, d, e with previous hash value
+        a = H0; b = H1; c = H2; d = H3; e = H4;
+
+        // 3 - main loop
+        for (var t=0; t<80; t++) {
+            var s = Math.floor(t/20); // seq for blocks of 'f' functions and 'K' constants
+            var T = (Sha1.ROTL(a,5) + Sha1.f(s,b,c,d) + e + K[s] + W[t]) & 0xffffffff;
+            e = d;
+            d = c;
+            c = Sha1.ROTL(b, 30);
+            b = a;
+            a = T;
+        }
+
+        // 4 - compute the new intermediate hash value (note 'addition modulo 2^32')
+        H0 = (H0+a) & 0xffffffff;
+        H1 = (H1+b) & 0xffffffff;
+        H2 = (H2+c) & 0xffffffff;
+        H3 = (H3+d) & 0xffffffff;
+        H4 = (H4+e) & 0xffffffff;
+    }
+
+    return Sha1.toHexStr(H0) + Sha1.toHexStr(H1) + Sha1.toHexStr(H2) +
+           Sha1.toHexStr(H3) + Sha1.toHexStr(H4);
+};
+
+/**
+ * Function 'f' [§4.1.1].
+ * @private
+ */
+Sha1.f = function(s, x, y, z)  {
+    switch (s) {
+        case 0: return (x & y) ^ (~x & z);           // Ch()
+        case 1: return  x ^ y  ^  z;                 // Parity()
+        case 2: return (x & y) ^ (x & z) ^ (y & z);  // Maj()
+        case 3: return  x ^ y  ^  z;                 // Parity()
+    }
+};
+
+/**
+ * Rotates left (circular left shift) value x by n positions [§3.2.5].
+ * @private
+ */
+Sha1.ROTL = function(x, n) {
+    return (x<<n) | (x>>>(32-n));
+};
+
+/**
+ * Hexadecimal representation of a number.
+ * @private
+ */
+Sha1.toHexStr = function(n) {
+    // note can't use toString(16) as it is implementation-dependant,
+    // and in IE returns signed numbers when used on full words
+    var s="", v;
+    for (var i=7; i>=0; i--) { v = (n>>>(i*4)) & 0xf; s += v.toString(16); }
+    return s;
+};
+
+/*-------------Sha1 implementation end here----------------------------*/
+
+//this map SHA-1 should contain hash values of first_real_content_page
+//and all derived objects
+var givenKeyChain={};
+function integrityVerify(url,obtainedContent,type)
+{
+	var valFromPeer=Sha1.hash(obtainedContent);
+	//console.log("url: "+url+" hash: "+valFromPeer);
+	//val valFromOriginServer=givenChain[url];
+	//compare the above two values
+	//if(url=="http://127.0.0.1/qihu_files/banner-for.jpg")
+		//return false;
+	return true;
+}
+
+
+function get(url,type) {
+  return new Promise(function(resolve, reject) {
+    var req = new XMLHttpRequest();
+    req.open('GET', url);
+    if(type===2){
+    	req.responseType="arraybuffer";
+    }
+    req.onerror = function() {
+    	console.log(url+" network error!");
+    	reject(url+" Network Error");
+    };
+    //var start_time=Date.now();
+    req.onload = function() {
+      //var end_time=Date.now();
+  	  //var duration=end_time-start_time;
+  	  //console.log(url," duration:",duration);
+      if (req.status == 200) {
+      	if(integrityVerify(url,req.response,type)){
+      		var rst={};
+  			rst.content=req.response;
+  			rst.type=type;
+      		//var remote_tp=req.getResponseHeader("myHeader");
+      		//console.log("local time: ",Date.now()," remote time:",remote_tp);
+      		rst.url=url;
+        	resolve(rst);
+        }
+        else{
+        	console.log(url+" cannot pass verification!");
+        	reject("cannot pass verification!");
+        }
+      }else {
+      	console.log(url+" status not 200!");
+        reject(Error(req.statusText));
+      }
+    };
+    req.send();
+    //start_time=Date.now();
+  }).then(function(rst){return rst;});
+}
+
+//myRecur will return a fullfilled jsonContent.content, i.e. all urls
+//int jsonContent.content will be replaced with contents
+function myRecur(jsonContent)
+{
+	var dummyPromise=Promise.resolve();
+	return dummyPromise.then(function(){
+		var urls=parsers[jsonContent.type](jsonContent.content);
+		var i=0;
+		var toDo=[];
+		for(i=0;i<urls.length;i++)
+		{
+			var curP;
+			if(container[urls[i].url]!=undefined)
+			{
+				//console.log("container hit: "+urls[i].url);
+				var temp=container[urls[i].url];
+				curP=Promise.resolve(temp);
+				curP.then(function(myTemp){
+					return myTemp;
+				});
+			}
+			else
+			{
+				curP=get(urls[i].url,urls[i].type).then(function(childContent){return myRecur(childContent);})
+				.then(function(cldCmdContent){return cldCmdContent;})
+			}
+			toDo.push(curP);
+		}
+		return Promise.all(toDo);
+	}).then(function(cldCmdContents){
+		var rst;
+		rst=linkReplacer[jsonContent.type](jsonContent.content);
+		container[jsonContent.url]=rst;
+		return rst;
+	});
+}
+window.onload=function()
+{
+var d2=Date.now();
+console.log("firstPage load time:",d2-d1);
+var rootUrl=peerUrl+"qihu3.htm";
+get(rootUrl,0).then(function(childContent){
+return myRecur(childContent);})
+.then(function(cldCmdContent){
+//29 represents length of this string "data:text/html;charset=utf-8,"
+//console.log(cldCmdContent.substring(0,40));
+var d3=Date.now();
+console.log("total time:",d3-d1);
+var finalContent=decodeURIComponent(cldCmdContent.substring(29));
+document.write(finalContent);
+})
+.catch(function(words){console.log(words+" some error happend!")});
+}
+</script>
+</html>

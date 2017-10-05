@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+</head>
+<body id="demo">
+<div id="demo_div"><h1>daikdhkasdakl</h1></div>
+<div id="demo_div2">
+<script type="text/javascript" src="sha1Hash.js"></script>
+<script type="text/javascript" src="jsencrypt.js"></script>
+<script type="text/javascript">
+
+//orgin server will give this
+var userPublicIP="76.181.12.12";
+
+//these two should be retrived from browser storage after first time
+var sequenceNumber="100";
+var cookieId="myChrome";
+
+var encrypt = new JSEncrypt();
+encrypt.setPublicKey("MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCwWCZGpRP90TpgNQXlcHoofVyiNtAzgqC4XHA2tndlfrD4xUIOuh04PsStVK70GFc0Uue0bAXpmYm7R2anPqSxrTr4Ga/GInpR0hgepr9e6Nka4uKgGGsPlzngZHVsPU3mSmL+EYrwy6F9bZLV/jFoi+2zrgqop+mZYSUD3Rxr5QIDAQAB");
+var encrypted = encrypt.encrypt(cookieId);
+console.log(encrypted);
+var encryptedCookieID=encrypted;
+var decrypt = new JSEncrypt();
+var privateFile="MIICWwIBAAKBgQCwWCZGpRP90TpgNQXlcHoofVyiNtAzgqC4XHA2tndlfrD4xUIOuh04PsStVK70GFc0Uue0bAXpmYm7R2anPqSxrTr4Ga/GInpR0hgepr9e6Nka4uKgGGsPlzngZHVsPU3mSmL+EYrwy6F9bZLV/jFoi+2zrgqop+mZYSUD3Rxr5QIDAQABAoGAB1fUWDK9j18sCB+NHE2/uHnn5pVTvCFfYe3vekfE1wQciG9mXcigONxcQj95fY6Z6wLcxSWOZXjQRG0nuCUipHWt5hOw0CC0YEXI+5HGg4mXfEO9CY4KurfWNzMiZoq1G1cF3qX6WmkqAKwMaCfUhqIvXeKOr39KUX2900vrLS0CQQDkDN4TYcl0HnOfw4js8o+P4vb8SPXQNjrk327XX62/tN7Kt7I60isxTm/n+/Hz06kXnWMi82lwVrN1PLMuLL7fAkEAxfT+8+3CAMSnHdtCQpAuXUZD3jkcKBj+Gzxr+9Cjdshlw0jUV7TjqpuszUAxmMulfzICIKjsq0Fmbo0hhbXhuwJAItpUlmG7iCOfSCt6IbxwdG0bkjMUXl3rYk9DgWb+Bu59nj2034h/UWnLcIjw0XLnxNQo8o6A7spRYvmD6OqtwQJAAM87q6uxO2eSd2DKKJOGXQNIi8QYBWH0yA+7MVBtGrM/F0lY9PLca3ovfrdgfIt4pciCkbefICQoUxNoq69OuQJAD4+kOlRIhsv5cZhWU22uqpB6o88aqZcHQRbZiSIMACsxbgOhWJkTzPwvHbitx7WEwdLtCvJCxDHRfCCzXo/1uA==";
+decrypt.setPrivateKey(privateFile);
+var uncrypted = decrypt.decrypt(encrypted);
+console.log(uncrypted);
+var peerIP="http://76.181.55.138/";
+var peerUrl="http://76.181.55.138/contents/";
+
+function retrieveOrigin()
+{
+   var xhttp=new XMLHttpRequest();
+   xhttp.onreadystatechange=function()
+   {
+     if (xhttp.readyState == 4 && xhttp.status == 200) {
+     document.write(xhttp.response.documentElement.outerHTML);
+     }
+     else
+     {
+       console.log("fail page failed to fetch!");
+     }
+   }
+   xhttp.open("GET","http://54.201.12.230/fail.html",true);
+   xhttp.send();
+}
+
+function loadDoc() {
+	var firstContentUrl=peerUrl+"pie.html";
+	var para=[];
+	para[0]=firstContentUrl;
+	para[1]=peerUrl;
+	var htmlWorker=new Worker("htmlWorker.js");
+	htmlWorker.postMessage(para);
+	htmlWorker.onmessage=function(e)
+	{
+		var status=e.data["status"];
+		var name=e.data["url"];
+        var content=e.data["content"];
+        var finalRender='<html><iframe src="'+content+'" width=100% height=1800px></iframe></html>'
+        if(status===1)
+        {
+        	htmlWorker.terminate();
+        	console.log("success!!!!");
+        	//document.write(finalRender);
+        }
+        else
+        {
+        	//document.write("nothing obtained due to error");
+        }
+	};
+}
+loadDoc();
+</script>
+</div>
+</body>
+</html>

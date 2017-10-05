@@ -1,7 +1,7 @@
 The repository stores the source code of the project NoCDN.
 For complete information, please refer to the thesis: 
 SCALABLE CONTENT DELIVERY WITHOUT A MIDDLEMAN
-available at the https://etd.ohiolink.edu/
+available at the https://etd.ohiolink.edu/!etd.send_file?accession=case1496939549948883&disposition=inline
 or refer to the paper:
 NoCDN: Scalable Content Delivery Without a Middleman
 available at https://hotweb2017.github.io/

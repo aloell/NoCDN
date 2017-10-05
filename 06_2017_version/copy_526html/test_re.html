@@ -1,0 +1,26 @@
+<html>
+<body>
+<p>Some original document content.</p>
+<img id="one" src="pie.jpg">
+<script type="text/javascript">
+var imgFetcher=new Worker("test_re.js");
+var kkk=5;
+function hander(e)
+{
+if(e.data instanceof Object)
+{
+	console.log(e.data["inner"]);
+}
+else
+	console.log(e.data);
+kkk=kkk-1;
+console.log("kkk: "+kkk);
+};
+imgFetcher.onmessage=hander;
+var url1="http://54.201.12.230/dota2.jpg";
+var url2="http://54.201.12.230/silverware.jpg";
+imgFetcher.postMessage(url1);
+imgFetcher.postMessage(url2);
+</script>
+</body>
+</html>

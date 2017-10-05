@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<body id="demo">
+
+<script>
+function loadDoc1() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (xhttp.readyState == 4 && xhttp.status == 200) {
+      document.getElementById("demo").innerHTML = xhttp.responseText;
+    }
+  };
+  xhttp.open("GET", "pie.html", true);
+  xhttp.send();
+}
+window.onload=loadDoc1;
+</script>
+</body>
+</html>
